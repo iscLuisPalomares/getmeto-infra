@@ -1,0 +1,33 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: getmeto - hello stack (learning stack, safe to delete)
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
+
+Resources:
+  HelloBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub getmeto-hello-${AWS::AccountId}-${AWS::Region}
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: app
+          Value: getmeto
+        - Key: environment
+          Value: !Ref Environment
+
+Outputs:
+  BucketName:
+    Description: Name of the bucket CloudFormation generated
+    Value: !Ref HelloBucket
+  BucketArn:
+    Value: !GetAtt HelloBucket.Arn
