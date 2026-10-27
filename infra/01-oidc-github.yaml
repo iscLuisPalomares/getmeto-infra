@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: getmeto - GitHub OIDC provider and infra deploy roles (bootstrap stack, deployed manually)
+
+Parameters:
+  GitHubOrg:
+    Type: String
+    Default: iscLuisPalomares
+  InfraRepo:
+    Type: String
+    Default: getmeto-infra
+  ExistingOidcProviderArn:
+    Type: String
+    Default: ''
+    Description: Leave empty to create the GitHub OIDC provider; otherwise the ARN of the one that already exists
+
+Conditions:
+  CreateProvider: !Equals [!Ref ExistingOidcProviderArn, '']
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: CreateProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList:
+        - sts.amazonaws.com
+      ThumbprintList:
+        - 6938fd4d98bab03faadb97b34396831e3780aea1
+
+  # Pull requests in getmeto-infra: preview changes only
+  PlanRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: getmeto-infra-plan
+      Description: getmeto-infra pull requests - read-only plus change set preview
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [CreateProvider, !Ref GitHubOidcProvider, !Ref ExistingOidcProviderArn]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${InfraRepo}:pull_request
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/ReadOnlyAccess
+      Policies:
+        - PolicyName: ChangeSetPreview
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DeleteChangeSet
+                Resource: !Sub arn:aws:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/getmeto-*/*
+
+  # main branch of getmeto-infra only: executes deploys
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: getmeto-infra-deploy
+      Description: getmeto-infra main branch - deploys getmeto stacks
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !If [CreateProvider, !Ref GitHubOidcProvider, !Ref ExistingOidcProviderArn]
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${InfraRepo}:ref:refs/heads/main
+      # TEMPORARY: broad on purpose while we learn. We tighten this in Stage 7.
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AdministratorAccess
+
+Outputs:
+  PlanRoleArn:
+    Value: !GetAtt PlanRole.Arn
+  DeployRoleArn:
+    Value: !GetAtt DeployRole.Arn
