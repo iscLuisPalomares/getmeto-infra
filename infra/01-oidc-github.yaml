@@ -8,6 +8,12 @@ Parameters:
   InfraRepo:
     Type: String
     Default: getmeto-infra
+  GitHubOrgId:
+    Type: String
+    Default: '5873135'
+  InfraRepoId:
+    Type: String
+    Default: '1425093783'
   ExistingOidcProviderArn:
     Type: String
     Default: ''
@@ -44,7 +50,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${InfraRepo}:pull_request
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}@{GitHubOrgId}/${InfraRepo}@{InfraRepoId}:pull_request
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/ReadOnlyAccess
       Policies:
@@ -75,7 +81,7 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}/${InfraRepo}:ref:refs/heads/main
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubOrg}@${GitHubOrgId}/${InfraRepo}@${InfraRepoId}:ref:refs/heads/main
       # TEMPORARY: broad on purpose while we learn. We tighten this in Stage 7.
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/AdministratorAccess
