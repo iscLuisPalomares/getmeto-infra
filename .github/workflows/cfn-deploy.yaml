@@ -1,0 +1,32 @@
+name: cfn-deploy
+on:
+  push:
+    branches: [main]
+    paths: ['infra/**']
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: cfn-deploy
+  cancel-in-progress: false   # never cancel a deploy halfway
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Deploy getmeto-hello
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/00-hello.yaml \
+            --stack-name getmeto-hello \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset

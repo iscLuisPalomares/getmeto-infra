@@ -1,0 +1,57 @@
+name: cfn-plan
+on:
+  pull_request:
+    paths: ['infra/**']
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - stack: getmeto-hello
+            template: infra/00-hello.yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint
+        run: |
+          pip install cfn-lint
+          cfn-lint ${{ matrix.template }}
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Create change set (no execute)
+        env:
+          CS_NAME: pr-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          aws cloudformation deploy \
+            --template-file ${{ matrix.template }} \
+            --stack-name ${{ matrix.stack }} \
+            --change-set-name "$CS_NAME" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-execute-changeset \
+            --no-fail-on-empty-changeset
+
+          {
+            echo "### Change set for \`${{ matrix.stack }}\`"
+            echo '```'
+            aws cloudformation describe-change-set \
+              --stack-name ${{ matrix.stack }} \
+              --change-set-name "$CS_NAME" \
+              --query "Changes[].ResourceChange.{Action:Action,Resource:LogicalResourceId,Type:ResourceType,Replacement:Replacement}" \
+              --output table 2>/dev/null || echo "No changes."
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          aws cloudformation delete-change-set \
+            --stack-name ${{ matrix.stack }} \
+            --change-set-name "$CS_NAME" 2>/dev/null || true
