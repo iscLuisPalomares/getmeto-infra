@@ -24,6 +24,8 @@ Resources:
           Value: getmeto
         - Key: environment
           Value: !Ref Environment
+        - Key: owner
+          Value: luis
 
 Outputs:
   BucketName:
