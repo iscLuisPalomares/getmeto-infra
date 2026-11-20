@@ -10,10 +10,10 @@ Parameters:
     Default: getmeto-infra
   GitHubOrgId:
     Type: String
-    Default: '5873135'
+    Default: 5873135
   InfraRepoId:
     Type: String
-    Default: '1425093783'
+    Default: 1425093783
   ExistingOidcProviderArn:
     Type: String
     Default: ''
