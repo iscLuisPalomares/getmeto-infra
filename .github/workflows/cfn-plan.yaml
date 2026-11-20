@@ -32,26 +32,48 @@ jobs:
       - name: Create change set (no execute)
         env:
           CS_NAME: pr-${{ github.run_id }}-${{ github.run_attempt }}
+          STACK: ${{ matrix.stack }}
+          TEMPLATE: ${{ matrix.template }}
         run: |
-          aws cloudformation deploy \
-            --template-file ${{ matrix.template }} \
-            --stack-name ${{ matrix.stack }} \
+          # Create if the stack doesn't exist yet, otherwise update
+          if aws cloudformation describe-stacks --stack-name "$STACK" >/dev/null 2>&1; then
+            CS_TYPE=UPDATE
+          else
+            CS_TYPE=CREATE
+          fi
+
+          aws cloudformation create-change-set \
+            --stack-name "$STACK" \
             --change-set-name "$CS_NAME" \
-            --capabilities CAPABILITY_NAMED_IAM \
-            --no-execute-changeset \
-            --no-fail-on-empty-changeset
+            --change-set-type "$CS_TYPE" \
+            --template-body "file://$TEMPLATE" \
+            --capabilities CAPABILITY_NAMED_IAM
+
+          # Wait for it to finish computing (fails if there are no changes)
+          STATUS=0
+          aws cloudformation wait change-set-create-complete \
+            --stack-name "$STACK" \
+            --change-set-name "$CS_NAME" 2>/dev/null || STATUS=$?
 
           {
-            echo "### Change set for \`${{ matrix.stack }}\`"
-            echo '```'
-            aws cloudformation describe-change-set \
-              --stack-name ${{ matrix.stack }} \
-              --change-set-name "$CS_NAME" \
-              --query "Changes[].ResourceChange.{Action:Action,Resource:LogicalResourceId,Type:ResourceType,Replacement:Replacement}" \
-              --output table 2>/dev/null || echo "No changes."
-            echo '```'
+            echo "### Change set for \`$STACK\`"
+            if [ "$STATUS" -eq 0 ]; then
+              echo '```'
+              aws cloudformation describe-change-set \
+                --stack-name "$STACK" \
+                --change-set-name "$CS_NAME" \
+                --query "Changes[].ResourceChange.{Action:Action,Resource:LogicalResourceId,Type:ResourceType,Replacement:Replacement}" \
+                --output table
+              echo '```'
+            else
+              aws cloudformation describe-change-set \
+                --stack-name "$STACK" \
+                --change-set-name "$CS_NAME" \
+                --query "StatusReason" --output text
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+          # Clean up so nothing is left behind
           aws cloudformation delete-change-set \
-            --stack-name ${{ matrix.stack }} \
-            --change-set-name "$CS_NAME" 2>/dev/null || true
+            --stack-name "$STACK" \
+            --change-set-name "$CS_NAME" || true
