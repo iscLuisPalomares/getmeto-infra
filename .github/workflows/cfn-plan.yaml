@@ -36,10 +36,12 @@ jobs:
           TEMPLATE: ${{ matrix.template }}
         run: |
           # Create if the stack doesn't exist yet, otherwise update
-          if aws cloudformation describe-stacks --stack-name "$STACK" >/dev/null 2>&1; then
-            CS_TYPE=UPDATE
-          else
+          STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+            --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo NONE)
+          if [ "$STACK_STATUS" = "NONE" ] || [ "$STACK_STATUS" = "REVIEW_IN_PROGRESS" ]; then
             CS_TYPE=CREATE
+          else
+            CS_TYPE=UPDATE
           fi
 
           aws cloudformation create-change-set \
