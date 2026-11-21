@@ -30,3 +30,11 @@ jobs:
             --stack-name getmeto-hello \
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset
+      
+      - name: Deploy getmeto-ecr
+        run: |
+          aws cloudformation deploy \
+            --template-file infra/02-ecr.yaml \
+            --stack-name getmeto-ecr \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset

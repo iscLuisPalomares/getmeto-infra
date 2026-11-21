@@ -16,6 +16,8 @@ jobs:
         include:
           - stack: getmeto-hello
             template: infra/00-hello.yaml
+          - stack: getmeto-ecr
+            template: infra/02-ecr.yaml
     steps:
       - uses: actions/checkout@v4
 
