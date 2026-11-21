@@ -11,7 +11,7 @@ Resources:
   HelloBucket:
     Type: AWS::S3::Bucket
     Properties:
-      BucketName: !Sub getmeto-hello-${AWS::AccountId}-${AWS::Region}
+      BucketName: !Sub getmeto-hello-v2-${AWS::AccountId}-${AWS::Region}
       VersioningConfiguration:
         Status: Enabled
       PublicAccessBlockConfiguration:
